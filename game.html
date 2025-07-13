@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dodge & Safe Zone Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            color: white;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-image: url('https://game-icons.net/icons/ffffff/000000/1x1/delapouite/jet-fighter.svg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            cursor: move;
+            z-index: 1000;
+            transition: transform 0.1s;
+        }
+
+        .bullet {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #ff4444;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #ff4444;
+        }
+
+        .safe-zone {
+            position: absolute;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #00ff00;
+            pointer-events: none;
+            width: 150px;
+            height: 150px;
+            animation: float 3s infinite ease-in-out;
+        }
+
+        .safe-zone.warning {
+            animation: float 3s infinite ease-in-out, blink 1s infinite;
+        }
+
+        .safe-zone.danger-warning {
+            animation: float 3s infinite ease-in-out, fastBlink 0.5s infinite;
+        }
+
+        .safe-zone.danger {
+            border: 2px solid #ff0000;
+            box-shadow: 0 0 15px #ff0000;
+            animation: float 3s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes fastBlink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .zone-countdown {
+            position: absolute;
+            font-size: 48px;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            z-index: 1000;
+            pointer-events: none;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .danger-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.2);
+            pointer-events: none;
+        }
+
+        #round-display {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            font-size: 16px;
+            text-shadow: 2px 2px #000;
+        }
+
+        #timer-display {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 16px;
+            text-shadow: 2px 2px #000;
+        }
+
+        #start-screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        #round-select {
+            margin: 20px 0;
+            padding: 10px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 16px;
+            background-color: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            cursor: pointer;
+        }
+
+        #round-select option {
+            background-color: #000;
+            color: #00ff00;
+            padding: 5px;
+        }
+
+        .mouse-guide {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+            pointer-events: none;
+            z-index: 2001;
+        }
+
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        #game-title {
+            font-size: 32px;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            margin-bottom: 40px;
+        }
+
+        #start-button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #00ff00;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+            transition: all 0.3s;
+        }
+
+        #start-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #00ff00;
+        }
+
+        #countdown {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 64px;
+            color: #00ff00;
+            text-shadow: 0 0 20px #00ff00;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1500;
+        }
+
+        .game-over, .round-clear {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            z-index: 1500;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .game-over {
+            background-color: rgba(255, 0, 0, 0.3);
+            color: #ff0000;
+        }
+
+        .round-clear {
+            background-color: rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+        }
+
+        .rock {
+            position: absolute;
+            background-image: url('https://game-icons.net/icons/ffffff/000000/1x1/delapouite/rock.svg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            filter: brightness(0.7);
+            z-index: 100;
+            background-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="round-display">ROUND 1</div>
+        <div id="timer-display">60</div>
+        <div id="player"></div>
+        <div id="start-screen">
+            <div id="game-title">DODGE & SURVIVE</div>
+            <select id="round-select">
+                <option value="1">ROUND 1</option>
+                <option value="2">ROUND 2</option>
+                <option value="3">ROUND 3</option>
+                <option value="4">ROUND 4</option>
+                <option value="5">ROUND 5</option>
+                <option value="6">ROUND 6</option>
+                <option value="7">ROUND 7</option>
+                <option value="8">ROUND 8</option>
+                <option value="9">ROUND 9</option>
+                <option value="10">ROUND 10</option>
+            </select>
+            <button id="start-button">START GAME</button>
+            <div class="mouse-guide"></div>
+        </div>
+        <div id="countdown"></div>
+        <div class="game-over">GAME OVER</div>
+        <div class="round-clear">ROUND CLEAR!</div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const player = document.getElementById('player');
+        const startScreen = document.getElementById('start-screen');
+        const startButton = document.getElementById('start-button');
+        const countdown = document.getElementById('countdown');
+        const roundDisplay = document.getElementById('round-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const gameOver = document.querySelector('.game-over');
+        const roundClear = document.querySelector('.round-clear');
+        const roundSelect = document.getElementById('round-select');
+        const mouseGuide = document.querySelector('.mouse-guide');
+
+        let currentRound = 1;
+        let gameTimer;
+        let bullets = [];
+        let safeZone = null;
+        let isDragging = false;
+        let currentX = 380;
+        let currentY = 280;
+        let initialX;
+        let initialY;
+        let xOffset = 380;
+        let yOffset = 280;
+
+        let rocks = [];
+        const ROCK_COUNT = 4;
+        const ROCK_SPEED = 1;
+
+        // 초기 플레이어 위치 설정
+        player.style.transform = `translate(${currentX}px, ${currentY}px)`;
+
+        // 마우스 추적 로직으로 변경
+        document.addEventListener('mousemove', (e) => {
+            if (!isGameStarted) return;
+
+            const rect = gameContainer.getBoundingClientRect();
+            let mouseX = e.clientX - rect.left;
+            let mouseY = e.clientY - rect.top;
+
+            // 게임 영역 제한
+            mouseX = Math.max(0, Math.min(mouseX, gameContainer.offsetWidth - player.offsetWidth));
+            mouseY = Math.max(0, Math.min(mouseY, gameContainer.offsetHeight - player.offsetHeight));
+
+            player.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
+            currentX = mouseX;
+            currentY = mouseY;
+            xOffset = mouseX;
+            yOffset = mouseY;
+
+            checkCollision();
+        });
+
+        // 기존 드래그 이벤트 제거
+        player.removeEventListener('mousedown', dragStart);
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', dragEnd);
+
+        function dragStart(e) {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+            
+            if (e.target === player) {
+                isDragging = true;
+            }
+        }
+
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+
+                // 게임 영역 제한
+                currentX = Math.max(0, Math.min(currentX, gameContainer.offsetWidth - player.offsetWidth));
+                currentY = Math.max(0, Math.min(currentY, gameContainer.offsetHeight - player.offsetHeight));
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                player.style.transform = `translate(${currentX}px, ${currentY}px)`;
+                checkCollision();
+            }
+        }
+
+        function dragEnd() {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+        }
+
+        function startGame() {
+            isGameStarted = false;
+            startScreen.style.display = 'none';
+            countdown.style.display = 'flex';
+            let count = 3;
+            
+            // 마우스 가이드 표시
+            mouseGuide.style.display = 'block';
+            
+            const countInterval = setInterval(() => {
+                countdown.textContent = count;
+                count--;
+                
+                if (count < 0) {
+                    clearInterval(countInterval);
+                    countdown.style.display = 'none';
+                    mouseGuide.style.display = 'none';
+                    isGameStarted = true;
+                    currentRound = parseInt(roundSelect.value);
+                    initializeRound(currentRound);
+                }
+            }, 1000);
+        }
+
+        function createRock() {
+            const rock = document.createElement('div');
+            rock.className = 'rock';
+            const size = Math.floor(Math.random() * (240 - 150 + 1)) + 150;
+            rock.style.width = size + 'px';
+            rock.style.height = size + 'px';
+            
+            const maxX = gameContainer.offsetWidth - size;
+            const x = Math.random() * maxX;
+            rock.style.left = x + 'px';
+            rock.style.top = -size + 'px';
+            
+            gameContainer.appendChild(rock);
+            rocks.push({
+                element: rock,
+                x: x,
+                y: -size,
+                size: size
+            });
+        }
+
+        function updateRocks() {
+            for (let i = rocks.length - 1; i >= 0; i--) {
+                const rock = rocks[i];
+                rock.y += ROCK_SPEED;
+                rock.element.style.top = rock.y + 'px';
+
+                // 화면 밖으로 나가면 제거하고 새로 생성
+                if (rock.y > gameContainer.offsetHeight) {
+                    rock.element.remove();
+                    rocks.splice(i, 1);
+                    createRock();
+                }
+            }
+        }
+
+        function initializeRocks() {
+            // 기존 바위 제거
+            rocks.forEach(rock => rock.element.remove());
+            rocks = [];
+
+            // 새로운 바위 생성
+            for (let i = 0; i < ROCK_COUNT; i++) {
+                createRock();
+            }
+        }
+
+        function createBullet() {
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.style.left = Math.random() * (gameContainer.offsetWidth - 8) + 'px';
+            bullet.style.top = Math.random() * (gameContainer.offsetHeight - 8) + 'px';
+            gameContainer.appendChild(bullet);
+            
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 2;
+            
+            bullet.vx = Math.cos(angle) * speed;
+            bullet.vy = Math.sin(angle) * speed;
+            bullets.push(bullet);
+
+            function moveBullet() {
+                if (!bullet.parentElement) return;  // 총알이 제거됐으면 중단
+
+                let currentLeft = parseFloat(bullet.style.left);
+                let currentTop = parseFloat(bullet.style.top);
+
+                // 벽과의 충돌 체크 및 반사
+                if (currentLeft <= 0 || currentLeft >= gameContainer.offsetWidth - 8) {
+                    bullet.vx *= -1;  // x 방향 속도 반전
+                    currentLeft = Math.max(0, Math.min(currentLeft, gameContainer.offsetWidth - 8));
+                }
+                if (currentTop <= 0 || currentTop >= gameContainer.offsetHeight - 8) {
+                    bullet.vy *= -1;  // y 방향 속도 반전
+                    currentTop = Math.max(0, Math.min(currentTop, gameContainer.offsetHeight - 8));
+                }
+
+                bullet.style.left = (currentLeft + bullet.vx) + 'px';
+                bullet.style.top = (currentTop + bullet.vy) + 'px';
+
+                requestAnimationFrame(moveBullet);
+            }
+
+            moveBullet();
+        }
+
+        function initializeSafeZoneStage(round) {
+            // 위험 구역 생성
+            const dangerZone = document.createElement('div');
+            dangerZone.className = 'danger-zone';
+            gameContainer.appendChild(dangerZone);
+
+            // 안전 구역 생성
+            safeZone = document.createElement('div');
+            safeZone.className = 'safe-zone';
+            gameContainer.appendChild(safeZone);
+
+            // 카운트다운 요소 생성
+            const zoneCountdown = document.createElement('div');
+            zoneCountdown.className = 'zone-countdown';
+            gameContainer.appendChild(zoneCountdown);
+
+            // 안전 구역 이동
+            const baseSpeed = 2;
+            const speed = baseSpeed + (round - 4) * 0.8;
+            moveSafeZone(speed);
+            startSafeZonePhases();
+        }
+
+        function startSafeZonePhases() {
+            let phaseTime = 0;
+            const zoneCountdown = document.querySelector('.zone-countdown');
+            
+            function updatePhase() {
+                if (!safeZone || !isGameStarted) return;
+                
+                phaseTime++;
+                
+                if (phaseTime === 50) { // 5초 경과
+                    safeZone.classList.add('warning');
+                } else if (phaseTime === 70) { // 7초 경과
+                    safeZone.classList.remove('warning');
+                    safeZone.classList.add('danger-warning');
+                    
+                    // 3초 카운트다운 시작
+                    let count = 3;
+                    zoneCountdown.style.display = 'flex';
+                    
+                    const countInterval = setInterval(() => {
+                        if (!isGameStarted) {
+                            clearInterval(countInterval);
+                            return;
+                        }
+                        
+                        zoneCountdown.textContent = count;
+                        count--;
+                        
+                        if (count < 0) {
+                            clearInterval(countInterval);
+                            zoneCountdown.style.display = 'none';
+                        }
+                    }, 1000);
+                } else if (phaseTime === 100) { // 10초 경과
+                    safeZone.classList.remove('danger-warning');
+                    safeZone.classList.add('danger');
+                    checkPlayerInSafeZone();
+                } else if (phaseTime === 200) { // 20초 경과 (빨간 원 10초 후)
+                    safeZone.classList.remove('danger');
+                    phaseTime = 0; // 사이클 리셋
+                }
+                
+                if (phaseTime >= 100 && phaseTime <= 200) { // 빨간 원일 때
+                    checkPlayerInSafeZone();
+                }
+            }
+
+            // 100ms 간격으로 페이즈 업데이트
+            const phaseInterval = setInterval(() => {
+                if (!isGameStarted) {
+                    clearInterval(phaseInterval);
+                    return;
+                }
+                updatePhase();
+            }, 100);
+        }
+
+        function checkPlayerInSafeZone() {
+            if (!safeZone || !isGameStarted) return;
+            
+            const playerRect = player.getBoundingClientRect();
+            const safeZoneRect = safeZone.getBoundingClientRect();
+            
+            if (!isColliding(playerRect, safeZoneRect)) {
+                endGame();
+            }
+        }
+
+        function moveSafeZone(speed) {
+            let x = Math.random() * (gameContainer.offsetWidth - parseInt(safeZone.style.width));
+            let y = Math.random() * (gameContainer.offsetHeight - parseInt(safeZone.style.height));
+            let targetX = Math.random() * (gameContainer.offsetWidth - parseInt(safeZone.style.width));
+            let targetY = Math.random() * (gameContainer.offsetHeight - parseInt(safeZone.style.height));
+
+            function animate() {
+                if (!safeZone) return;
+
+                const dx = targetX - x;
+                const dy = targetY - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < speed) {
+                    targetX = Math.random() * (gameContainer.offsetWidth - parseInt(safeZone.style.width));
+                    targetY = Math.random() * (gameContainer.offsetHeight - parseInt(safeZone.style.height));
+                } else {
+                    x += (dx / distance) * speed;
+                    y += (dy / distance) * speed;
+                    safeZone.style.left = x + 'px';
+                    safeZone.style.top = y + 'px';
+                }
+
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+        }
+
+        function initializeCombinedStage(round) {
+            initializeBulletStage(Math.min(round - 7, 3)); // 총알 수 제한
+            initializeSafeZoneStage(round);
+        }
+
+        function initializeBulletStage(round) {
+            const baseBulletCount = 20;  // 기본 총알 수 증가
+            const bulletCount = baseBulletCount + (round * 15);
+            for (let i = 0; i < bulletCount; i++) {
+                createBullet();
+            }
+        }
+
+        function checkCollision() {
+            const playerRect = player.getBoundingClientRect();
+
+            // 총알 충돌 체크
+            for (const bullet of bullets) {
+                const bulletRect = bullet.getBoundingClientRect();
+                if (isColliding(playerRect, bulletRect)) {
+                    endGame();
+                    return;
+                }
+            }
+
+            // 바위 충돌 체크
+            for (const rock of rocks) {
+                const rockRect = rock.element.getBoundingClientRect();
+                if (isColliding(playerRect, rockRect)) {
+                    endGame();
+                    return;
+                }
+            }
+
+            // 안전 구역 체크 (4-10라운드)
+            if (currentRound >= 4 && safeZone) {
+                const safeZoneRect = safeZone.getBoundingClientRect();
+                if (!isColliding(playerRect, safeZoneRect)) {
+                    endGame();
+                    return;
+                }
+            }
+        }
+
+        function isColliding(rect1, rect2) {
+            return !(rect1.right < rect2.left || 
+                    rect1.left > rect2.right || 
+                    rect1.bottom < rect2.top || 
+                    rect1.top > rect2.bottom);
+        }
+
+        function endGame() {
+            clearInterval(gameTimer);
+            gameOver.style.display = 'flex';
+            setTimeout(() => {
+                resetGame();
+            }, 2000);
+        }
+
+        function completeRound() {
+            roundClear.style.display = 'flex';
+            setTimeout(() => {
+                roundClear.style.display = 'none';
+                currentRound++;
+                if (currentRound <= 10) {
+                    initializeRound(currentRound);
+                } else {
+                    alert('축하합니다! 모든 라운드를 클리어하셨습니다!');
+                    resetGame();
+                }
+            }, 2000);
+        }
+
+        function clearGameElements() {
+            bullets.forEach(bullet => bullet.remove());
+            bullets = [];
+            rocks.forEach(rock => rock.element.remove());
+            rocks = [];
+            if (safeZone) {
+                safeZone.classList.remove('warning', 'danger-warning', 'danger');
+                safeZone.remove();
+                safeZone = null;
+            }
+            const dangerZone = document.querySelector('.danger-zone');
+            if (dangerZone) {
+                dangerZone.remove();
+            }
+            const zoneCountdown = document.querySelector('.zone-countdown');
+            if (zoneCountdown) {
+                zoneCountdown.remove();
+            }
+        }
+
+        function resetGame() {
+            clearGameElements();
+            isGameStarted = false;
+            currentRound = parseInt(roundSelect.value);
+            gameOver.style.display = 'none';
+            startScreen.style.display = 'flex';
+            mouseGuide.style.display = 'block';
+            currentX = gameContainer.offsetWidth / 2;
+            currentY = gameContainer.offsetHeight / 2;
+            xOffset = currentX;
+            yOffset = currentY;
+            player.style.transform = `translate(${currentX}px, ${currentY}px)`;
+        }
+
+        function initializeRound(round) {
+            clearGameElements();
+            roundDisplay.textContent = `ROUND ${round}`;
+            let timeLeft = 60;
+            
+            if (round <= 3) {
+                initializeBulletStage(round);
+                initializeRocks();  // 바위 추가
+            } else if (round <= 7) {
+                initializeSafeZoneStage(round);
+            } else {
+                initializeCombinedStage(round);
+                initializeRocks();  // 바위 추가
+            }
+
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(gameTimer);
+                    completeRound();
+                }
+            }, 1000);
+        }
+
+        // 시작 버튼 클릭 이벤트
+        startButton.addEventListener('click', () => {
+            toggleFullScreen();
+            // 마우스를 화면 중앙으로 유도
+            const centerX = gameContainer.offsetWidth / 2;
+            const centerY = gameContainer.offsetHeight / 2;
+            currentX = centerX;
+            currentY = centerY;
+            player.style.transform = `translate(${centerX}px, ${centerY}px)`;
+            startGame();
+        });
+
+        // 게임 루프
+        function gameLoop() {
+            if (gameOver.style.display !== 'flex') {
+                checkCollision();
+                updateRocks();  // 바위 업데이트 추가
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+
+        // 풀스크린 처리
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            }
+        }
+    </script>
+</body>
+</html> 
